@@ -1,4 +1,4 @@
-console.log("TileInspector loaded — Lane 1 (contrast-aware magnitude)");
+console.log("TileInspector loaded — Lane 1 (contrast-aware magnitude, visible)");
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -24,7 +24,7 @@ let lastTouchDistance = null;
 let lastTouchMidpoint = null;
 
 // Cached image analysis
-let seamColor = { r: 255, g: 255, b: 255 }; // default soft white
+let seamColor = { r: 255, g: 255, b: 255 };
 
 // ======================
 // CANVAS SIZE
@@ -77,21 +77,15 @@ function analyseImageBrightness() {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-
-    // Perceptual luminance
-    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    totalLuminance += luminance;
+    totalLuminance += 0.2126 * r + 0.7152 * g + 0.0722 * b;
   }
 
-  const avgLuminance = totalLuminance / pixelCount;
+  const avg = totalLuminance / pixelCount;
 
-  // Threshold ~ mid grey
-  if (avgLuminance < 128) {
-    // Dark image → soft white seams
-    seamColor = { r: 230, g: 230, b: 230 };
+  if (avg < 128) {
+    seamColor = { r: 230, g: 230, b: 230 }; // soft white
   } else {
-    // Light image → red seams
-    seamColor = { r: 220, g: 30, b: 30 };
+    seamColor = { r: 220, g: 30, b: 30 }; // red
   }
 }
 
@@ -128,13 +122,9 @@ canvas.addEventListener("mousedown", (e) => {
   dragging = true;
   lastX = e.clientX;
   lastY = e.clientY;
-  canvas.style.cursor = "grabbing";
 });
 
-window.addEventListener("mouseup", () => {
-  dragging = false;
-  canvas.style.cursor = "grab";
-});
+window.addEventListener("mouseup", () => dragging = false);
 
 window.addEventListener("mousemove", (e) => {
   if (!dragging) return;
@@ -179,8 +169,7 @@ canvas.addEventListener("touchmove", (e) => {
     const newDistance = getTouchDistance(e.touches);
     const newMidpoint = getTouchMidpoint(e.touches);
 
-    const zoomFactor = newDistance / lastTouchDistance;
-    scale *= zoomFactor;
+    scale *= newDistance / lastTouchDistance;
 
     offsetX += newMidpoint.x - lastTouchMidpoint.x;
     offsetY += newMidpoint.y - lastTouchMidpoint.y;
@@ -229,7 +218,7 @@ function draw() {
 }
 
 // ======================
-// EDGE MAGNITUDE — CONTRAST AWARE
+// EDGE MAGNITUDE — ALWAYS VISIBLE
 // ======================
 function drawEdgeMagnitude(w, h) {
   const temp = document.createElement("canvas");
@@ -241,6 +230,8 @@ function drawEdgeMagnitude(w, h) {
   const data = tctx.getImageData(0, 0, w, h).data;
   ctx.lineWidth = 2;
 
+  const MIN_ALPHA = 0.15; // <-- critical fix
+
   // Vertical seams
   for (let y = 0; y < h; y++) {
     const iL = (y * w) * 4;
@@ -251,8 +242,7 @@ function drawEdgeMagnitude(w, h) {
       Math.abs(data[iL + 1] - data[iR + 1]) +
       Math.abs(data[iL + 2] - data[iR + 2]);
 
-    const alpha = Math.min(diff / 200, 1); // fade out as seam improves
-    if (alpha < 0.05) continue;
+    const alpha = Math.max(MIN_ALPHA, Math.min(diff / 200, 1));
 
     ctx.strokeStyle = `rgba(${seamColor.r}, ${seamColor.g}, ${seamColor.b}, ${alpha})`;
 
@@ -274,8 +264,7 @@ function drawEdgeMagnitude(w, h) {
       Math.abs(data[iT + 1] - data[iB + 1]) +
       Math.abs(data[iT + 2] - data[iB + 2]);
 
-    const alpha = Math.min(diff / 200, 1);
-    if (alpha < 0.05) continue;
+    const alpha = Math.max(MIN_ALPHA, Math.min(diff / 200, 1));
 
     ctx.strokeStyle = `rgba(${seamColor.r}, ${seamColor.g}, ${seamColor.b}, ${alpha})`;
 
