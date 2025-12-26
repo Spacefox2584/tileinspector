@@ -18,6 +18,7 @@
       <button id="edgeToggle">Edge Check</button>
       <button id="photoToggle">Photo Preview</button>
       <button id="resetView">Reset View</button>
+      <button id="exportBtn">Export JPG</button>
     </div>
   </div>
 
@@ -41,6 +42,23 @@
         <span>Two-finger twist (touch) — Rotate (In Preview Only)</span>
       </div>
     </div>
+  </div>
+  <div id="exportPanel" style="display:none; position:fixed; bottom:16px; right:16px; background:#111; padding:12px; border-radius:6px; z-index:9999; width:220px;">
+    <strong style="color:#fff; display:block; margin-bottom:8px;">Export Adjustments</strong>
+
+    <label>Brightness</label>
+    <input type="range" id="expBrightness" min="-10" max="10" value="0">
+
+    <label>Contrast</label>
+    <input type="range" id="expContrast" min="-10" max="10" value="0">
+
+    <label>Warmth</label>
+    <input type="range" id="expWarmth" min="-10" max="10" value="0">
+
+    <label>Shadow Lift</label>
+    <input type="range" id="expShadows" min="0" max="10" value="0">
+
+    <button id="downloadBtn" style="margin-top:10px; width:100%;">Download JPG</button>
   </div>
 
   <script src="main.js"></script>
