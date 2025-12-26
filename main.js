@@ -440,7 +440,7 @@ function buildTexturedLayer(w, h, extraOffsetX, extraOffsetY) {
   cctx.setTransform(texScale, 0, 0, texScale, ox, oy);
   cctx.fillStyle = pattern;
   // Large fill rect so repeat covers even under transforms
-  cctx.fillRect(-w*2, -h*2, w*5, h*5);
+  cctx.fillRect(-w*10, -h*10, w*21, h*21);
 
   // reset
   cctx.setTransform(1,0,0,1,0,0);
