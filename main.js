@@ -228,7 +228,7 @@ function drawEdgeMagnitude(w, h) {
   tctx.drawImage(img, 0, 0);
 
   const data = tctx.getImageData(0, 0, w, h).data;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 4;
 
   const MIN_ALPHA = 0.15; // <-- critical fix
 
