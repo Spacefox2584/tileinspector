@@ -190,6 +190,7 @@ photoBtn.addEventListener("click", () => {
     loadPhotoAndMask();
   }
   draw();
+  if (exportPanel && exportPanel.style.display === "block") updateExportPreview();
 });
 
 resetBtn.addEventListener("click", resetView);
@@ -242,15 +243,17 @@ window.addEventListener("keydown", (e) => {
       document.querySelector('[data-tiles="3"]').click();
       break;
 
-    // Rotation (per your instruction): arrows only
+    // Rotation: arrows only
     case "ArrowLeft":
       texRotation -= (Math.PI / 180) * 2; // -2°
       draw();
+      if (exportPanel && exportPanel.style.display === "block") updateExportPreview();
       break;
 
     case "ArrowRight":
       texRotation += (Math.PI / 180) * 2; // +2°
       draw();
+      if (exportPanel && exportPanel.style.display === "block") updateExportPreview();
       break;
   }
 });
@@ -262,6 +265,7 @@ canvas.addEventListener("wheel", (e) => {
   e.preventDefault();
   texScale *= e.deltaY < 0 ? 1.1 : 0.9;
   draw();
+  if (exportPanel && exportPanel.style.display === "block") updateExportPreview();
 });
 
 canvas.addEventListener("mousedown", (e) => {
@@ -283,7 +287,30 @@ window.addEventListener("mousemove", (e) => {
   lastX = e.clientX;
   lastY = e.clientY;
   draw();
+  if (exportPanel && exportPanel.style.display === "block") updateExportPreview();
 });
+// ======================
+// TOUCH HELPERS
+// ======================
+function getTouchDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+
+function getTouchMidpoint(touches) {
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2
+  };
+}
+
+// angle of the line between two fingers (radians)
+function getTouchAngle(touches) {
+  const dx = touches[1].clientX - touches[0].clientX;
+  const dy = touches[1].clientY - touches[0].clientY;
+  return Math.atan2(dy, dx);
+}
 
 // ======================
 // TOUCH PAN + PINCH + TWIST ROTATE (texture)
@@ -318,6 +345,7 @@ canvas.addEventListener("touchmove", (e) => {
     lastX = x;
     lastY = y;
     draw();
+    if (exportPanel && exportPanel.style.display === "block") updateExportPreview();
     return;
   }
 
@@ -354,21 +382,31 @@ canvas.addEventListener("touchmove", (e) => {
     lastTouchAngle = newAngle;
 
     draw();
+    if (exportPanel && exportPanel.style.display === "block") updateExportPreview();
   }
 }, { passive: false });
 
 canvas.addEventListener("touchend", () => {
-  if (canvasTouchesCount() < 2) {
-    lastTouchDistance = null;
-    lastTouchMidpoint = null;
-    lastTouchAngle = null;
-  }
+  lastTouchDistance = null;
+  lastTouchMidpoint = null;
+  lastTouchAngle = null;
 });
 
-function canvasTouchesCount() {
-  // safe helper: touchend doesn’t include current touches on some browsers
-  // so we just reset when fewer than 2 fingers are likely active.
-  return 0;
+function getTouchDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+function getTouchMidpoint(touches) {
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2
+  };
+}
+function getTouchAngle(touches) {
+  const dx = touches[1].clientX - touches[0].clientX;
+  const dy = touches[1].clientY - touches[0].clientY;
+  return Math.atan2(dy, dx);
 }
 
 // ======================
@@ -400,8 +438,14 @@ function drawTileView() {
   const startX = (canvas.width - totalW) / 2 + texOffsetX;
   const startY = (canvas.height - totalH) / 2 + texOffsetY;
 
+  ctx.save();
   ctx.translate(startX, startY);
   ctx.scale(texScale, texScale);
+
+  // Apply rotation around the tile grid origin
+  ctx.translate(totalW/(2*texScale), totalH/(2*texScale));
+  ctx.rotate(texRotation);
+  ctx.translate(-totalW/(2*texScale), -totalH/(2*texScale));
 
   for (let y = 0; y < tiles; y++) {
     for (let x = 0; x < tiles; x++) {
@@ -410,6 +454,8 @@ function drawTileView() {
   }
 
   if (showEdges) drawEdgeMagnitude(w, h);
+
+  ctx.restore();
 }
 
 // ======================
@@ -457,15 +503,13 @@ function buildTexturedLayer(w, h, extraOffsetX, extraOffsetY) {
 
   const pattern = cctx.createPattern(textureImg, "repeat");
 
-  // interpret offsets as canvas pixels -> convert to photo pixels
+  // map preview-space offsets to photo pixels
   const sx = w / canvas.width;
   const sy = h / canvas.height;
 
   const ox = (texOffsetX * sx) + extraOffsetX;
   const oy = (texOffsetY * sy) + extraOffsetY;
 
-  // We apply rotation around origin by composing the transform:
-  // [R * S] with translation (ox, oy)
   const s = texScale;
   const r = texRotation;
 
@@ -510,9 +554,11 @@ function drawEdgeMagnitude(w, h) {
   tctx.drawImage(textureImg, 0, 0);
 
   const data = tctx.getImageData(0, 0, w, h).data;
+
   ctx.lineWidth = 4;
   const MIN_ALPHA = 0.15;
 
+  // Vertical seams
   for (let y = 0; y < h; y++) {
     const iL = (y * w) * 4;
     const iR = (y * w + (w - 1)) * 4;
@@ -533,6 +579,7 @@ function drawEdgeMagnitude(w, h) {
     }
   }
 
+  // Horizontal seams
   for (let x = 0; x < w; x++) {
     const iT = x * 4;
     const iB = ((h - 1) * w + x) * 4;
@@ -555,28 +602,6 @@ function drawEdgeMagnitude(w, h) {
 }
 
 // ======================
-// TOUCH HELPERS
-// ======================
-function getTouchDistance(touches) {
-  const dx = touches[0].clientX - touches[1].clientX;
-  const dy = touches[0].clientY - touches[1].clientY;
-  return Math.hypot(dx, dy);
-}
-
-function getTouchMidpoint(touches) {
-  return {
-    x: (touches[0].clientX + touches[1].clientX) / 2,
-    y: (touches[0].clientY + touches[1].clientY) / 2
-  };
-}
-
-// angle of the line between two fingers (radians)
-function getTouchAngle(touches) {
-  const dx = touches[1].clientX - touches[0].clientX;
-  const dy = touches[1].clientY - touches[0].clientY;
-  return Math.atan2(dy, dx);
-}
-// ======================
 // EXPORT STATE & WIRING
 // ======================
 const exportBtn = document.getElementById("exportBtn");
@@ -588,10 +613,46 @@ const expContrast   = document.getElementById("expContrast");
 const expWarmth     = document.getElementById("expWarmth");
 const expShadows    = document.getElementById("expShadows");
 
-exportBtn.addEventListener("click", () => {
-  exportPanel.style.display =
-    exportPanel.style.display === "none" ? "block" : "none";
+// Live export preview (updates as sliders move)
+const exportPreviewCanvas = document.getElementById("exportPreview");
+const exportPreviewCtx = exportPreviewCanvas ? exportPreviewCanvas.getContext("2d") : null;
+const EXPORT_PREVIEW_SIZE = 512;
+if (exportPreviewCanvas) {
+  exportPreviewCanvas.width = EXPORT_PREVIEW_SIZE;
+  exportPreviewCanvas.height = EXPORT_PREVIEW_SIZE;
+}
+
+// Update export preview whenever sliders change
+function updateExportPreview() {
+  if (!exportPreviewCanvas || !exportPreviewCtx) return;
+  if (!showPhotoPreview || !textureImg || !photoReady || !maskReady || !maskBottomCanvas || !maskTopCanvas) return;
+
+  const temp = renderExportImage(); // full-res render, then downscale to preview
+  applyExportAdjustments(temp);
+
+  exportPreviewCtx.setTransform(1,0,0,1,0,0);
+  exportPreviewCtx.clearRect(0,0,EXPORT_PREVIEW_SIZE,EXPORT_PREVIEW_SIZE);
+
+  const scale = Math.min(EXPORT_PREVIEW_SIZE / temp.width, EXPORT_PREVIEW_SIZE / temp.height);
+  const dw = Math.round(temp.width * scale);
+  const dh = Math.round(temp.height * scale);
+  const dx = Math.round((EXPORT_PREVIEW_SIZE - dw) / 2);
+  const dy = Math.round((EXPORT_PREVIEW_SIZE - dh) / 2);
+
+  exportPreviewCtx.drawImage(temp, dx, dy, dw, dh);
+}
+
+[expBrightness, expContrast, expWarmth, expShadows].forEach((slider) => {
+  if (!slider) return;
+  slider.addEventListener("input", updateExportPreview);
 });
+
+exportBtn.addEventListener("click", () => {
+  const isOpen = exportPanel.style.display !== "block";
+  exportPanel.style.display = isOpen ? "block" : "none";
+  if (isOpen) updateExportPreview();
+});
+
 // ======================
 // EXPORT RENDER & DOWNLOAD
 // ======================
@@ -609,6 +670,7 @@ downloadBtn.addEventListener("click", () => {
   link.href = out.toDataURL("image/jpeg", 0.95);
   link.click();
 });
+
 // ======================
 // CORE EXPORT RENDERER
 // ======================
@@ -625,19 +687,20 @@ function renderExportImage() {
   octx.drawImage(photoImg, 0, 0, w, h);
 
   // Bottom donut
-  const bottomTex = buildTexturedLayer(w, h, 0, 0);
-  const bottom = applyMask(bottomTex, maskBottomCanvas);
+  const texBase = buildTexturedLayer(w, h, 0, 0);
+  const bottom = applyMask(texBase, maskBottomCanvas);
   octx.drawImage(bottom, 0, 0);
 
-  // Top donut (offset preserved)
-  const ox = textureImg.width  * TOP_DONUT_OFFSET.x;
-  const oy = textureImg.height * TOP_DONUT_OFFSET.y;
-  const topTex = buildTexturedLayer(w, h, ox, oy);
-  const top = applyMask(topTex, maskTopCanvas);
+  // Top donut with deterministic offset
+  const extraX = textureImg.width  * TOP_DONUT_OFFSET.x;
+  const extraY = textureImg.height * TOP_DONUT_OFFSET.y;
+  const texTop = buildTexturedLayer(w, h, extraX, extraY);
+  const top = applyMask(texTop, maskTopCanvas);
   octx.drawImage(top, 0, 0);
 
   return out;
 }
+
 // ======================
 // ADJUSTMENT PASS
 // ======================
@@ -685,4 +748,3 @@ function applyExportAdjustments(canvas) {
 
   ctx.putImageData(img, 0, 0);
 }
-
