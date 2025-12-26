@@ -108,8 +108,14 @@ function buildMasksIfReady() {
   for (let i = 0; i < d.length; i += 4) {
     const r = d[i], g = d[i+1], b = d[i+2];
 
-    const isBottom = (r === COLOR_BOTTOM.r && g === COLOR_BOTTOM.g && b === COLOR_BOTTOM.b);
-    const isTop    = (r === COLOR_TOP.r    && g === COLOR_TOP.g    && b === COLOR_TOP.b);
+    // Green-ish = bottom donut
+const isBottom =
+  g > 180 && r < 100 && b < 100;
+
+// Blue-ish = top donut
+const isTop =
+  b > 180 && r < 100 && g < 100;
+
 
     // Bottom mask = white w/ alpha
     bottom.data[i]   = 255;
