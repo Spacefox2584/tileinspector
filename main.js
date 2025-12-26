@@ -1,19 +1,14 @@
-console.log("TileInspector — Lane 2.1 (Photo Preview) loaded");
+console.log("TileInspector — Lane 2.2 (Rotation + Touch Twist) loaded");
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-const legend = document.getElementById("legend");
 const edgeBtn = document.getElementById("edgeToggle");
 const resetBtn = document.getElementById("resetView");
 const photoBtn = document.getElementById("photoToggle");
 
 const PHOTO_SRC = "assets/photos/donuts_overlap.jpg";
 const MASK_SRC  = "assets/masks/donuts_overlap_mask.png";
-
-// Mask colour definitions (exact)
-const COLOR_BOTTOM = { r: 0,   g: 255, b: 0   }; // Green
-const COLOR_TOP    = { r: 0,   g: 0,   b: 255 }; // Blue
 
 // Deterministic per-donut offset (prevents “same texture on both” look)
 const TOP_DONUT_OFFSET = { x: 0.37, y: 0.61 }; // fractions of texture size
@@ -31,6 +26,7 @@ let showPhotoPreview = false;
 let texScale = 1;
 let texOffsetX = 0;
 let texOffsetY = 0;
+let texRotation = 0; // radians
 
 // Mouse state
 let dragging = false;
@@ -40,6 +36,7 @@ let lastY = 0;
 // Touch state
 let lastTouchDistance = null;
 let lastTouchMidpoint = null;
+let lastTouchAngle = null;
 
 // Seam colour (Lane 1)
 let seamColor = { r: 230, g: 230, b: 230 };
@@ -66,7 +63,7 @@ window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
 // ======================
-// LOAD PHOTO + MASK (Lane 2.1)
+// LOAD PHOTO + MASK (Lane 2.x)
 // ======================
 function loadPhotoAndMask() {
   photoImg = new Image();
@@ -81,7 +78,6 @@ function loadPhotoAndMask() {
 function buildMasksIfReady() {
   if (!photoReady || !maskReady) return;
 
-  // Build colour-split alpha masks from the provided label map
   const w = maskImg.width;
   const h = maskImg.height;
 
@@ -108,22 +104,16 @@ function buildMasksIfReady() {
   for (let i = 0; i < d.length; i += 4) {
     const r = d[i], g = d[i+1], b = d[i+2];
 
-    // Green-ish = bottom donut
-const isBottom =
-  g > 180 && r < 100 && b < 100;
+    // Robust colour classification:
+    // bottom = green-ish, top = blue-ish, background = black/other
+    const isBottom = g > 120 && g > r * 1.4 && g > b * 1.4;
+    const isTop    = b > 120 && b > r * 1.4 && b > g * 1.4;
 
-// Blue-ish = top donut
-const isTop =
-  b > 180 && r < 100 && g < 100;
-
-
-    // Bottom mask = white w/ alpha
     bottom.data[i]   = 255;
     bottom.data[i+1] = 255;
     bottom.data[i+2] = 255;
     bottom.data[i+3] = isBottom ? 255 : 0;
 
-    // Top mask = white w/ alpha
     top.data[i]   = 255;
     top.data[i+1] = 255;
     top.data[i+2] = 255;
@@ -196,7 +186,6 @@ photoBtn.addEventListener("click", () => {
   showPhotoPreview = !showPhotoPreview;
   photoBtn.classList.toggle("active", showPhotoPreview);
 
-  // Lazy-load photo/mask only when first needed
   if (showPhotoPreview && (!photoImg || !maskImg)) {
     loadPhotoAndMask();
   }
@@ -209,6 +198,7 @@ function resetView() {
   texScale = 1;
   texOffsetX = 0;
   texOffsetY = 0;
+  texRotation = 0;
   draw();
 }
 
@@ -251,6 +241,17 @@ window.addEventListener("keydown", (e) => {
     case "3":
       document.querySelector('[data-tiles="3"]').click();
       break;
+
+    // Rotation (per your instruction): arrows only
+    case "ArrowLeft":
+      texRotation -= (Math.PI / 180) * 2; // -2°
+      draw();
+      break;
+
+    case "ArrowRight":
+      texRotation += (Math.PI / 180) * 2; // +2°
+      draw();
+      break;
   }
 });
 
@@ -285,7 +286,7 @@ window.addEventListener("mousemove", (e) => {
 });
 
 // ======================
-// TOUCH PAN + PINCH ZOOM (texture)
+// TOUCH PAN + PINCH + TWIST ROTATE (texture)
 // ======================
 canvas.addEventListener("touchstart", (e) => {
   e.preventDefault();
@@ -293,17 +294,22 @@ canvas.addEventListener("touchstart", (e) => {
   if (e.touches.length === 1) {
     lastX = e.touches[0].clientX;
     lastY = e.touches[0].clientY;
+    lastTouchDistance = null;
+    lastTouchMidpoint = null;
+    lastTouchAngle = null;
   }
 
   if (e.touches.length === 2) {
     lastTouchDistance = getTouchDistance(e.touches);
     lastTouchMidpoint = getTouchMidpoint(e.touches);
+    lastTouchAngle = getTouchAngle(e.touches);
   }
 }, { passive: false });
 
 canvas.addEventListener("touchmove", (e) => {
   e.preventDefault();
 
+  // 1 finger = pan
   if (e.touches.length === 1 && lastTouchDistance === null) {
     const x = e.touches[0].clientX;
     const y = e.touches[0].clientY;
@@ -312,26 +318,58 @@ canvas.addEventListener("touchmove", (e) => {
     lastX = x;
     lastY = y;
     draw();
+    return;
   }
 
+  // 2 fingers = pinch zoom + pan + twist rotate
   if (e.touches.length === 2) {
     const newDistance = getTouchDistance(e.touches);
     const newMidpoint = getTouchMidpoint(e.touches);
+    const newAngle = getTouchAngle(e.touches);
 
-    texScale *= newDistance / lastTouchDistance;
-    texOffsetX += newMidpoint.x - lastTouchMidpoint.x;
-    texOffsetY += newMidpoint.y - lastTouchMidpoint.y;
+    // zoom
+    if (lastTouchDistance) {
+      texScale *= newDistance / lastTouchDistance;
+    }
+
+    // pan
+    if (lastTouchMidpoint) {
+      texOffsetX += newMidpoint.x - lastTouchMidpoint.x;
+      texOffsetY += newMidpoint.y - lastTouchMidpoint.y;
+    }
+
+    // rotation (twist)
+    if (lastTouchAngle !== null) {
+      let delta = newAngle - lastTouchAngle;
+
+      // normalize to [-pi, +pi] so it doesn’t jump across wrap-around
+      if (delta > Math.PI) delta -= Math.PI * 2;
+      if (delta < -Math.PI) delta += Math.PI * 2;
+
+      texRotation += delta;
+    }
 
     lastTouchDistance = newDistance;
     lastTouchMidpoint = newMidpoint;
+    lastTouchAngle = newAngle;
+
     draw();
   }
 }, { passive: false });
 
 canvas.addEventListener("touchend", () => {
-  lastTouchDistance = null;
-  lastTouchMidpoint = null;
+  if (canvasTouchesCount() < 2) {
+    lastTouchDistance = null;
+    lastTouchMidpoint = null;
+    lastTouchAngle = null;
+  }
 });
+
+function canvasTouchesCount() {
+  // safe helper: touchend doesn’t include current touches on some browsers
+  // so we just reset when fewer than 2 fingers are likely active.
+  return 0;
+}
 
 // ======================
 // DRAW ENTRY
@@ -350,7 +388,7 @@ function draw() {
 }
 
 // ======================
-// TILE VIEW (existing behaviour)
+// TILE VIEW
 // ======================
 function drawTileView() {
   const w = textureImg.width;
@@ -375,18 +413,16 @@ function drawTileView() {
 }
 
 // ======================
-// PHOTO PREVIEW (Lane 2.1)
+// PHOTO PREVIEW (Lane 2.x)
 // ======================
 function drawPhotoPreview() {
   if (!photoReady || !maskReady || !maskBottomCanvas || !maskTopCanvas) {
-    // show a tiny hint that assets are loading, but keep it minimal (no animation)
     ctx.fillStyle = "#999";
     ctx.font = "14px system-ui, -apple-system, Segoe UI, Roboto, Arial";
     ctx.fillText("Loading photo preview assets…", 16, 28);
     return;
   }
 
-  // Fit photo into canvas (contain)
   const pw = photoImg.width;
   const ph = photoImg.height;
 
@@ -396,55 +432,55 @@ function drawPhotoPreview() {
   const dx = (canvas.width - drawW) / 2;
   const dy = (canvas.height - drawH) / 2;
 
-  // 1) draw base photo
+  // base photo
   ctx.drawImage(photoImg, dx, dy, drawW, drawH);
 
-  // 2) build textured layer in photo pixel space (offscreen at native photo size)
+  // bottom donut
   const texBase = buildTexturedLayer(pw, ph, 0, 0);
-
-  // 3) bottom donut (green)
   const bottomLayer = applyMask(texBase, maskBottomCanvas);
 
-  // 4) top donut (blue) with deterministic offset
+  // top donut with deterministic offset
   const extraX = textureImg.width  * TOP_DONUT_OFFSET.x;
   const extraY = textureImg.height * TOP_DONUT_OFFSET.y;
   const texTop = buildTexturedLayer(pw, ph, extraX, extraY);
   const topLayer = applyMask(texTop, maskTopCanvas);
 
-  // 5) composite onto photo
   ctx.drawImage(bottomLayer, dx, dy, drawW, drawH);
   ctx.drawImage(topLayer,    dx, dy, drawW, drawH);
 }
 
-// Draw tiled texture into an offscreen canvas, sized to photo pixels
+// Draw tiled texture into an offscreen canvas sized to photo pixels
 function buildTexturedLayer(w, h, extraOffsetX, extraOffsetY) {
   const c = document.createElement("canvas");
   c.width = w; c.height = h;
   const cctx = c.getContext("2d");
 
-  // We want texOffsetX/Y to move texture in screen space.
-  // Convert screen offsets into photo pixel offsets using fit scale.
-  // Easiest: treat texOffsetX/Y as photo-space pixels by scaling by inverse fit at draw time.
-  // Since we rebuild at native photo size, we map screen offsets proportionally to photo space using canvas size ratio.
-  // Simple + stable: interpret offsets as canvas pixels, convert to photo pixels by multiplying by (w / canvas.width).
+  const pattern = cctx.createPattern(textureImg, "repeat");
+
+  // interpret offsets as canvas pixels -> convert to photo pixels
   const sx = w / canvas.width;
   const sy = h / canvas.height;
 
   const ox = (texOffsetX * sx) + extraOffsetX;
   const oy = (texOffsetY * sy) + extraOffsetY;
 
-  // Draw repeating pattern to cover the whole photo
-  const pattern = cctx.createPattern(textureImg, "repeat");
+  // We apply rotation around origin by composing the transform:
+  // [R * S] with translation (ox, oy)
+  const s = texScale;
+  const r = texRotation;
 
-  // Apply transforms: scale + offset (rotation can come later)
-  cctx.setTransform(texScale, 0, 0, texScale, ox, oy);
+  const a = Math.cos(r) * s;
+  const b = Math.sin(r) * s;
+  const cM = -Math.sin(r) * s;
+  const d = Math.cos(r) * s;
+
+  cctx.setTransform(a, b, cM, d, ox, oy);
   cctx.fillStyle = pattern;
-  // Large fill rect so repeat covers even under transforms
+
+  // Overdraw big so extreme zoom-out never shows cut-offs
   cctx.fillRect(-w*10, -h*10, w*21, h*21);
 
-  // reset
   cctx.setTransform(1,0,0,1,0,0);
-
   return c;
 }
 
@@ -532,4 +568,11 @@ function getTouchMidpoint(touches) {
     x: (touches[0].clientX + touches[1].clientX) / 2,
     y: (touches[0].clientY + touches[1].clientY) / 2
   };
+}
+
+// angle of the line between two fingers (radians)
+function getTouchAngle(touches) {
+  const dx = touches[1].clientX - touches[0].clientX;
+  const dy = touches[1].clientY - touches[0].clientY;
+  return Math.atan2(dy, dx);
 }
