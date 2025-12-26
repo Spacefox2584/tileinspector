@@ -576,3 +576,113 @@ function getTouchAngle(touches) {
   const dy = touches[1].clientY - touches[0].clientY;
   return Math.atan2(dy, dx);
 }
+// ======================
+// EXPORT STATE & WIRING
+// ======================
+const exportBtn = document.getElementById("exportBtn");
+const exportPanel = document.getElementById("exportPanel");
+const downloadBtn = document.getElementById("downloadBtn");
+
+const expBrightness = document.getElementById("expBrightness");
+const expContrast   = document.getElementById("expContrast");
+const expWarmth     = document.getElementById("expWarmth");
+const expShadows    = document.getElementById("expShadows");
+
+exportBtn.addEventListener("click", () => {
+  exportPanel.style.display =
+    exportPanel.style.display === "none" ? "block" : "none";
+});
+// ======================
+// EXPORT RENDER & DOWNLOAD
+// ======================
+downloadBtn.addEventListener("click", () => {
+  if (!showPhotoPreview) {
+    alert("Export works from Photo Preview mode only.");
+    return;
+  }
+
+  const out = renderExportImage();
+  applyExportAdjustments(out);
+
+  const link = document.createElement("a");
+  link.download = "tileinspector_export.jpg";
+  link.href = out.toDataURL("image/jpeg", 0.95);
+  link.click();
+});
+// ======================
+// CORE EXPORT RENDERER
+// ======================
+function renderExportImage() {
+  const w = photoImg.width;
+  const h = photoImg.height;
+
+  const out = document.createElement("canvas");
+  out.width = w;
+  out.height = h;
+  const octx = out.getContext("2d");
+
+  // Base photo
+  octx.drawImage(photoImg, 0, 0, w, h);
+
+  // Bottom donut
+  const bottomTex = buildTexturedLayer(w, h, 0, 0);
+  const bottom = applyMask(bottomTex, maskBottomCanvas);
+  octx.drawImage(bottom, 0, 0);
+
+  // Top donut (offset preserved)
+  const ox = textureImg.width  * TOP_DONUT_OFFSET.x;
+  const oy = textureImg.height * TOP_DONUT_OFFSET.y;
+  const topTex = buildTexturedLayer(w, h, ox, oy);
+  const top = applyMask(topTex, maskTopCanvas);
+  octx.drawImage(top, 0, 0);
+
+  return out;
+}
+// ======================
+// ADJUSTMENT PASS
+// ======================
+function applyExportAdjustments(canvas) {
+  const ctx = canvas.getContext("2d");
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = img.data;
+
+  const b = Number(expBrightness.value);
+  const c = Number(expContrast.value) * 0.05 + 1;
+  const w = Number(expWarmth.value);
+  const s = Number(expShadows.value);
+
+  for (let i = 0; i < d.length; i += 4) {
+    let r = d[i];
+    let g = d[i+1];
+    let b2 = d[i+2];
+
+    // Contrast
+    r = (r - 128) * c + 128;
+    g = (g - 128) * c + 128;
+    b2 = (b2 - 128) * c + 128;
+
+    // Brightness
+    r += b;
+    g += b;
+    b2 += b;
+
+    // Warmth
+    r += w;
+    b2 -= w;
+
+    // Shadow lift
+    const lum = 0.2126*r + 0.7152*g + 0.0722*b2;
+    if (lum < 80) {
+      r += s;
+      g += s;
+      b2 += s;
+    }
+
+    d[i]   = Math.max(0, Math.min(255, r));
+    d[i+1] = Math.max(0, Math.min(255, g));
+    d[i+2] = Math.max(0, Math.min(255, b2));
+  }
+
+  ctx.putImageData(img, 0, 0);
+}
+
