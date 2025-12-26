@@ -1,4 +1,4 @@
-console.log("TileInspector loaded — Lane 1 + Lane 3.1 (FULL INTERACTION)");
+console.log("TileInspector loaded — Lane 1 + Lane 3.1 (keyboard fixed)");
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -77,8 +77,8 @@ function analyseImageBrightness() {
 
   const avg = total / (img.width * img.height);
   seamColor = avg < 128
-    ? { r: 230, g: 230, b: 230 }   // soft white
-    : { r: 220, g: 30, b: 30 };    // red
+    ? { r: 230, g: 230, b: 230 }
+    : { r: 220, g: 30, b: 30 };
 }
 
 // ======================
@@ -112,16 +112,40 @@ function resetView() {
 }
 
 // ======================
-// KEYBOARD SHORTCUTS
+// KEYBOARD SHORTCUTS (FIXED)
 // ======================
 window.addEventListener("keydown", (e) => {
-  if (e.target.tagName === "INPUT") return;
+  const tag = e.target.tagName;
+  const isTyping =
+    tag === "TEXTAREA" ||
+    (tag === "INPUT" && e.target.type === "text") ||
+    e.target.isContentEditable;
 
-  if (e.key === "r" || e.key === "R") resetView();
-  if (e.key === "e" || e.key === "E") edgeBtn.click();
-  if (e.key === "1") document.querySelector('[data-tiles="1"]').click();
-  if (e.key === "2") document.querySelector('[data-tiles="2"]').click();
-  if (e.key === "3") document.querySelector('[data-tiles="3"]').click();
+  if (isTyping) return;
+
+  switch (e.key) {
+    case "r":
+    case "R":
+      resetView();
+      break;
+
+    case "e":
+    case "E":
+      edgeBtn.click();
+      break;
+
+    case "1":
+      document.querySelector('[data-tiles="1"]').click();
+      break;
+
+    case "2":
+      document.querySelector('[data-tiles="2"]').click();
+      break;
+
+    case "3":
+      document.querySelector('[data-tiles="3"]').click();
+      break;
+  }
 });
 
 // ======================
@@ -248,6 +272,7 @@ function drawEdgeMagnitude(w, h) {
   for (let y = 0; y < h; y++) {
     const iL = (y * w) * 4;
     const iR = (y * w + (w - 1)) * 4;
+
     const diff =
       Math.abs(data[iL] - data[iR]) +
       Math.abs(data[iL + 1] - data[iR + 1]) +
@@ -267,6 +292,7 @@ function drawEdgeMagnitude(w, h) {
   for (let x = 0; x < w; x++) {
     const iT = x * 4;
     const iB = ((h - 1) * w + x) * 4;
+
     const diff =
       Math.abs(data[iT] - data[iB]) +
       Math.abs(data[iT + 1] - data[iB + 1]) +
