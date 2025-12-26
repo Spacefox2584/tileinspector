@@ -43,3 +43,35 @@ canvas {
   touch-action: none;
 }
 
+#edgeToggle.active {
+  background: #555;
+  border-color: #777;
+}
+
+#resetView {
+  margin-left: auto;
+}
+
+#legend {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(0,0,0,0.6);
+  color: #eee;
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 4px;
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+
+#legend .faint {
+  opacity: 0.6;
+}
+
+#legend .bold {
+  font-weight: 600;
+}
+
+
