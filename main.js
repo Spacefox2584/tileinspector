@@ -1,4 +1,4 @@
-console.log("TileInspector loaded — Lane 3.1 UX polish");
+console.log("TileInspector loaded — Lane 1 + Lane 3.1 (FULL INTERACTION)");
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -18,7 +18,7 @@ let scale = 1;
 let offsetX = 0;
 let offsetY = 0;
 
-// Mouse pan
+// Mouse state
 let dragging = false;
 let lastX = 0;
 let lastY = 0;
@@ -38,7 +38,6 @@ function resizeCanvas() {
   canvas.height = canvas.clientHeight;
   draw();
 }
-
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
@@ -70,16 +69,16 @@ function analyseImageBrightness() {
   tctx.drawImage(img, 0, 0);
 
   const data = tctx.getImageData(0, 0, img.width, img.height).data;
-
   let total = 0;
+
   for (let i = 0; i < data.length; i += 4) {
-    total += 0.2126 * data[i] + 0.7152 * data[i+1] + 0.0722 * data[i+2];
+    total += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
   }
 
   const avg = total / (img.width * img.height);
   seamColor = avg < 128
-    ? { r: 230, g: 230, b: 230 }
-    : { r: 220, g: 30, b: 30 };
+    ? { r: 230, g: 230, b: 230 }   // soft white
+    : { r: 220, g: 30, b: 30 };    // red
 }
 
 // ======================
@@ -126,9 +125,83 @@ window.addEventListener("keydown", (e) => {
 });
 
 // ======================
-// MOUSE + TOUCH (UNCHANGED)
+// MOUSE ZOOM + PAN
 // ======================
-// (zoom, pan, pinch code stays exactly as before)
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  scale *= e.deltaY < 0 ? 1.1 : 0.9;
+  draw();
+});
+
+canvas.addEventListener("mousedown", (e) => {
+  dragging = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  canvas.style.cursor = "grabbing";
+});
+
+window.addEventListener("mouseup", () => {
+  dragging = false;
+  canvas.style.cursor = "grab";
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (!dragging) return;
+  offsetX += e.clientX - lastX;
+  offsetY += e.clientY - lastY;
+  lastX = e.clientX;
+  lastY = e.clientY;
+  draw();
+});
+
+// ======================
+// TOUCH PAN + PINCH ZOOM
+// ======================
+canvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+
+  if (e.touches.length === 1) {
+    lastX = e.touches[0].clientX;
+    lastY = e.touches[0].clientY;
+  }
+
+  if (e.touches.length === 2) {
+    lastTouchDistance = getTouchDistance(e.touches);
+    lastTouchMidpoint = getTouchMidpoint(e.touches);
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchmove", (e) => {
+  e.preventDefault();
+
+  if (e.touches.length === 1 && lastTouchDistance === null) {
+    const x = e.touches[0].clientX;
+    const y = e.touches[0].clientY;
+    offsetX += x - lastX;
+    offsetY += y - lastY;
+    lastX = x;
+    lastY = y;
+    draw();
+  }
+
+  if (e.touches.length === 2) {
+    const newDistance = getTouchDistance(e.touches);
+    const newMidpoint = getTouchMidpoint(e.touches);
+
+    scale *= newDistance / lastTouchDistance;
+    offsetX += newMidpoint.x - lastTouchMidpoint.x;
+    offsetY += newMidpoint.y - lastTouchMidpoint.y;
+
+    lastTouchDistance = newDistance;
+    lastTouchMidpoint = newMidpoint;
+    draw();
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchend", () => {
+  lastTouchDistance = null;
+  lastTouchMidpoint = null;
+});
 
 // ======================
 // DRAW
@@ -159,7 +232,7 @@ function draw() {
 }
 
 // ======================
-// EDGE MAGNITUDE (UNCHANGED)
+// EDGE MAGNITUDE
 // ======================
 function drawEdgeMagnitude(w, h) {
   const temp = document.createElement("canvas");
@@ -177,8 +250,8 @@ function drawEdgeMagnitude(w, h) {
     const iR = (y * w + (w - 1)) * 4;
     const diff =
       Math.abs(data[iL] - data[iR]) +
-      Math.abs(data[iL+1] - data[iR+1]) +
-      Math.abs(data[iL+2] - data[iR+2]);
+      Math.abs(data[iL + 1] - data[iR + 1]) +
+      Math.abs(data[iL + 2] - data[iR + 2]);
 
     const alpha = Math.max(MIN_ALPHA, Math.min(diff / 200, 1));
     ctx.strokeStyle = `rgba(${seamColor.r},${seamColor.g},${seamColor.b},${alpha})`;
@@ -196,8 +269,8 @@ function drawEdgeMagnitude(w, h) {
     const iB = ((h - 1) * w + x) * 4;
     const diff =
       Math.abs(data[iT] - data[iB]) +
-      Math.abs(data[iT+1] - data[iB+1]) +
-      Math.abs(data[iT+2] - data[iB+2]);
+      Math.abs(data[iT + 1] - data[iB + 1]) +
+      Math.abs(data[iT + 2] - data[iB + 2]);
 
     const alpha = Math.max(MIN_ALPHA, Math.min(diff / 200, 1));
     ctx.strokeStyle = `rgba(${seamColor.r},${seamColor.g},${seamColor.b},${alpha})`;
@@ -209,4 +282,20 @@ function drawEdgeMagnitude(w, h) {
       ctx.stroke();
     }
   }
+}
+
+// ======================
+// TOUCH HELPERS
+// ======================
+function getTouchDistance(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.hypot(dx, dy);
+}
+
+function getTouchMidpoint(touches) {
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2
+  };
 }
