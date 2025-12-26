@@ -1,9 +1,8 @@
+console.log("TileInspector loaded");
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// ======================
-// STATE
-// ======================
 let img = null;
 let tiles = 3;
 let showEdges = false;
@@ -17,7 +16,7 @@ let lastX = 0;
 let lastY = 0;
 
 // ======================
-// CANVAS SETUP
+// CANVAS SIZE
 // ======================
 function resizeCanvas() {
   canvas.width = canvas.clientWidth;
@@ -29,7 +28,7 @@ window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
 // ======================
-// IMAGE IMPORT
+// IMAGE LOAD
 // ======================
 document.getElementById("fileInput").addEventListener("change", (e) => {
   const file = e.target.files[0];
@@ -47,13 +46,12 @@ document.getElementById("fileInput").addEventListener("change", (e) => {
 });
 
 // ======================
-// UI CONTROLS
+// BUTTONS
 // ======================
-document.querySelectorAll("button[data-tiles]").forEach((btn) => {
+document.querySelectorAll("button[data-tiles]").forEach(btn => {
   btn.addEventListener("click", () => {
-    document
-      .querySelectorAll("button[data-tiles]")
-      .forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll("button[data-tiles]")
+      .forEach(b => b.classList.remove("active"));
 
     btn.classList.add("active");
     tiles = Number(btn.dataset.tiles);
@@ -79,13 +77,9 @@ canvas.addEventListener("mousedown", (e) => {
   dragging = true;
   lastX = e.clientX;
   lastY = e.clientY;
-  canvas.style.cursor = "grabbing";
 });
 
-window.addEventListener("mouseup", () => {
-  dragging = false;
-  canvas.style.cursor = "grab";
-});
+window.addEventListener("mouseup", () => dragging = false);
 
 window.addEventListener("mousemove", (e) => {
   if (!dragging) return;
@@ -108,11 +102,35 @@ function draw() {
   const w = img.width;
   const h = img.height;
 
-  const totalWidth = w * tiles;
-  const totalHeight = h * tiles;
+  const totalW = w * tiles;
+  const totalH = h * tiles;
 
-  // Center tiled image in canvas
-  const centerX = (canvas.width - totalWidth * scale) / 2;
-  const centerY = (canvas.height - totalHeight * scale) / 2;
+  const startX = (canvas.width - totalW * scale) / 2 + offsetX;
+  const startY = (canvas.height - totalH * scale) / 2 + offsetY;
 
-  ctx.translate(centerX + offsetX, c
+  ctx.translate(startX, startY);
+  ctx.scale(scale, scale);
+
+  for (let y = 0; y < tiles; y++) {
+    for (let x = 0; x < tiles; x++) {
+      ctx.drawImage(img, x * w, y * h);
+    }
+  }
+
+  if (showEdges) {
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 2;
+
+    for (let t = 1; t < tiles; t++) {
+      ctx.beginPath();
+      ctx.moveTo(w * t, 0);
+      ctx.lineTo(w * t, h * tiles);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(0, h * t);
+      ctx.lineTo(w * tiles, h * t);
+      ctx.stroke();
+    }
+  }
+}
