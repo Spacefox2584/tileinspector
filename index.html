@@ -1,39 +1,45 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TileInspector</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <div class="topbar">
+    <input id="fileInput" type="file" accept="image/*" />
 
-  <div id="toolbar">
-    <input type="file" id="fileInput" accept="image/*" />
+    <div class="btnrow">
+      <button data-tiles="1">1×1</button>
+      <button data-tiles="2">2×2</button>
+      <button data-tiles="3" class="active">3×3</button>
 
-    <button data-tiles="1">1×1</button>
-    <button data-tiles="2">2×2</button>
-    <button data-tiles="3" class="active">3×3</button>
-
-    <button id="edgeToggle">Edge Check</button>
-    <button id="resetView">Reset View</button>
-  </div>
-
-  <div id="legend">
-    <div class="legend-section">
-      <strong>Edge Check</strong>
-      <span class="faint">faint = good</span>
-      <span class="bold">bold = bad</span>
-    </div>
-
-    <div class="legend-section">
-      <strong>Keyboard Shortcuts</strong>
-      <span>1 / 2 / 3 — Tile density</span>
-      <span>E — Toggle edge check</span>
-      <span>R — Reset view</span>
+      <button id="edgeToggle">Edge Check</button>
+      <button id="photoToggle">Photo Preview</button>
+      <button id="resetView">Reset View</button>
     </div>
   </div>
 
-  <canvas id="canvas"></canvas>
+  <div class="stage">
+    <canvas id="canvas"></canvas>
+
+    <div id="legend">
+      <div class="legend-section">
+        <strong>Edge Check</strong>
+        <span class="faint">faint = good</span>
+        <span class="bold">bold = bad</span>
+      </div>
+
+      <div class="legend-section">
+        <strong>Keyboard Shortcuts</strong>
+        <span>1 / 2 / 3 — Tile density</span>
+        <span>E — Toggle edge check</span>
+        <span>R — Reset view</span>
+        <span>P — Toggle photo preview</span>
+      </div>
+    </div>
+  </div>
 
   <script src="main.js"></script>
 </body>
