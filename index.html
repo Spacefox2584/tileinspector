@@ -45,6 +45,8 @@
   </div>
   <div id="exportPanel" style="display:none; position:fixed; bottom:16px; right:16px; background:#111; padding:12px; border-radius:6px; z-index:9999; width:220px;">
     <strong style="color:#fff; display:block; margin-bottom:8px;">Export Adjustments</strong>
+    <canvas id="exportPreview" 
+        style="width:100%; aspect-ratio:1/1; background:#000; margin-bottom:10px;"></canvas>
 
     <label>Brightness</label>
     <input type="range" id="expBrightness" min="-10" max="10" value="0">
