@@ -105,71 +105,14 @@ function draw() {
 
   if (!img) return;
 
-  ctx.translate(offsetX, offsetY);
-  ctx.scale(scale, scale);
-
   const w = img.width;
   const h = img.height;
 
-  // Draw tiled image
-  for (let y = 0; y < tiles; y++) {
-    for (let x = 0; x < tiles; x++) {
-      ctx.drawImage(img, x * w, y * h);
-    }
-  }
+  const totalWidth = w * tiles;
+  const totalHeight = h * tiles;
 
-  if (showEdges) {
-    drawEdgeBoundaries(w, h);
-  }
-}
+  // Center tiled image in canvas
+  const centerX = (canvas.width - totalWidth * scale) / 2;
+  const centerY = (canvas.height - totalHeight * scale) / 2;
 
-// ======================
-// EDGE MAGNITUDE (BOUNDARIES ONLY)
-// ======================
-function drawEdgeBoundaries(w, h) {
-  const temp = document.createElement("canvas");
-  temp.width = w;
-  temp.height = h;
-  const tctx = temp.getContext("2d");
-  tctx.drawImage(img, 0, 0);
-
-  const data = tctx.getImageData(0, 0, w, h).data;
-  ctx.lineWidth = 2;
-
-  // Vertical seams (left ↔ right)
-  for (let y = 0; y < h; y++) {
-    const iL = (y * w) * 4;
-    const iR = (y * w + (w - 1)) * 4;
-
-    const diff =
-      Math.abs(data[iL] - data[iR]) +
-      Math.abs(data[iL + 1] - data[iR + 1]) +
-      Math.abs(data[iL + 2] - data[iR + 2]);
-
-    const intensity = Math.min(diff / 3, 255);
-    ctx.strokeStyle = `rgb(${intensity}, 0, 0)`;
-
-    for (let t = 1; t < tiles; t++) {
-      ctx.beginPath();
-      ctx.moveTo(w * t, y);
-      ctx.lineTo(w * t, y + 1);
-      ctx.stroke();
-    }
-  }
-
-  // Horizontal seams (top ↔ bottom)
-  for (let x = 0; x < w; x++) {
-    const iT = x * 4;
-    const iB = ((h - 1) * w + x) * 4;
-
-    const diff =
-      Math.abs(data[iT] - data[iB]) +
-      Math.abs(data[iT + 1] - data[iB + 1]) +
-      Math.abs(data[iT + 2] - data[iB + 2]);
-
-    const intensity = Math.min(diff / 3, 255);
-    ctx.strokeStyle = `rgb(${intensity}, 0, 0)`;
-
-    for (let t = 1; t < tiles; t++) {
-      ctx.beginPath();
-      ctx.moveTo(x, h
+  ctx.translate(centerX + offsetX, c
