@@ -56,14 +56,28 @@ canvas {
   position: absolute;
   bottom: 12px;
   left: 12px;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.65);
   color: #eee;
-  padding: 6px 10px;
+  padding: 10px 12px;
   font-size: 12px;
   border-radius: 4px;
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
   pointer-events: none;
+  max-width: 260px;
+}
+
+#legend strong {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.legend-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 #legend .faint {
@@ -73,5 +87,6 @@ canvas {
 #legend .bold {
   font-weight: 600;
 }
+
 
 
