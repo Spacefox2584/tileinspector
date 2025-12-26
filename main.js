@@ -71,8 +71,7 @@ document.getElementById("edgeToggle").addEventListener("click", () => {
 // ======================
 canvas.addEventListener("wheel", (e) => {
   e.preventDefault();
-  const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-  scale *= zoomFactor;
+  scale *= e.deltaY < 0 ? 1.1 : 0.9;
   draw();
 });
 
@@ -98,7 +97,7 @@ window.addEventListener("mousemove", (e) => {
 });
 
 // ======================
-// MAIN DRAW LOOP
+// DRAW
 // ======================
 function draw() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -120,59 +119,57 @@ function draw() {
   }
 
   if (showEdges) {
-    drawEdgeMagnitude(w, h);
+    drawEdgeBoundaries(w, h);
   }
 }
 
 // ======================
-// EDGE MAGNITUDE INSPECTION (v0.2)
+// EDGE MAGNITUDE (BOUNDARIES ONLY)
 // ======================
-function drawEdgeMagnitude(w, h) {
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = w;
-  tempCanvas.height = h;
-  const tctx = tempCanvas.getContext("2d");
+function drawEdgeBoundaries(w, h) {
+  const temp = document.createElement("canvas");
+  temp.width = w;
+  temp.height = h;
+  const tctx = temp.getContext("2d");
   tctx.drawImage(img, 0, 0);
 
-  const imageData = tctx.getImageData(0, 0, w, h).data;
+  const data = tctx.getImageData(0, 0, w, h).data;
+  ctx.lineWidth = 2;
 
-  ctx.lineWidth = 1;
-
-  // LEFT ↔ RIGHT EDGE
+  // Vertical seams (left ↔ right)
   for (let y = 0; y < h; y++) {
-    const leftIndex = (y * w) * 4;
-    const rightIndex = (y * w + (w - 1)) * 4;
+    const iL = (y * w) * 4;
+    const iR = (y * w + (w - 1)) * 4;
 
     const diff =
-      Math.abs(imageData[leftIndex] - imageData[rightIndex]) +
-      Math.abs(imageData[leftIndex + 1] - imageData[rightIndex + 1]) +
-      Math.abs(imageData[leftIndex + 2] - imageData[rightIndex + 2]);
+      Math.abs(data[iL] - data[iR]) +
+      Math.abs(data[iL + 1] - data[iR + 1]) +
+      Math.abs(data[iL + 2] - data[iR + 2]);
 
     const intensity = Math.min(diff / 3, 255);
     ctx.strokeStyle = `rgb(${intensity}, 0, 0)`;
 
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(w * tiles, y);
-    ctx.stroke();
+    for (let t = 1; t < tiles; t++) {
+      ctx.beginPath();
+      ctx.moveTo(w * t, y);
+      ctx.lineTo(w * t, y + 1);
+      ctx.stroke();
+    }
   }
 
-  // TOP ↔ BOTTOM EDGE
+  // Horizontal seams (top ↔ bottom)
   for (let x = 0; x < w; x++) {
-    const topIndex = x * 4;
-    const bottomIndex = ((h - 1) * w + x) * 4;
+    const iT = x * 4;
+    const iB = ((h - 1) * w + x) * 4;
 
     const diff =
-      Math.abs(imageData[topIndex] - imageData[bottomIndex]) +
-      Math.abs(imageData[topIndex + 1] - imageData[bottomIndex + 1]) +
-      Math.abs(imageData[topIndex + 2] - imageData[bottomIndex + 2]);
+      Math.abs(data[iT] - data[iB]) +
+      Math.abs(data[iT + 1] - data[iB + 1]) +
+      Math.abs(data[iT + 2] - data[iB + 2]);
 
     const intensity = Math.min(diff / 3, 255);
     ctx.strokeStyle = `rgb(${intensity}, 0, 0)`;
 
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, h * tiles);
-    ctx.stroke();
-  }
-}
+    for (let t = 1; t < tiles; t++) {
+      ctx.beginPath();
+      ctx.moveTo(x, h
