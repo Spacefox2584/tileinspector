@@ -1,4 +1,4 @@
-console.log("TileInspector loaded (touch enabled)");
+console.log("TileInspector loaded — Lane 1 (contrast-aware magnitude)");
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -22,6 +22,9 @@ let lastY = 0;
 // Touch state
 let lastTouchDistance = null;
 let lastTouchMidpoint = null;
+
+// Cached image analysis
+let seamColor = { r: 255, g: 255, b: 255 }; // default soft white
 
 // ======================
 // CANVAS SIZE
@@ -48,10 +51,49 @@ document.getElementById("fileInput").addEventListener("change", (e) => {
     scale = 1;
     offsetX = 0;
     offsetY = 0;
+
+    analyseImageBrightness();
     draw();
   };
   image.src = URL.createObjectURL(file);
 });
+
+// ======================
+// IMAGE ANALYSIS
+// ======================
+function analyseImageBrightness() {
+  const temp = document.createElement("canvas");
+  temp.width = img.width;
+  temp.height = img.height;
+  const tctx = temp.getContext("2d");
+  tctx.drawImage(img, 0, 0);
+
+  const data = tctx.getImageData(0, 0, img.width, img.height).data;
+
+  let totalLuminance = 0;
+  const pixelCount = img.width * img.height;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+
+    // Perceptual luminance
+    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    totalLuminance += luminance;
+  }
+
+  const avgLuminance = totalLuminance / pixelCount;
+
+  // Threshold ~ mid grey
+  if (avgLuminance < 128) {
+    // Dark image → soft white seams
+    seamColor = { r: 230, g: 230, b: 230 };
+  } else {
+    // Light image → red seams
+    seamColor = { r: 220, g: 30, b: 30 };
+  }
+}
 
 // ======================
 // UI CONTROLS
@@ -110,13 +152,11 @@ canvas.addEventListener("touchstart", (e) => {
   e.preventDefault();
 
   if (e.touches.length === 1) {
-    // One finger = pan
     lastX = e.touches[0].clientX;
     lastY = e.touches[0].clientY;
   }
 
   if (e.touches.length === 2) {
-    // Two fingers = pinch
     lastTouchDistance = getTouchDistance(e.touches);
     lastTouchMidpoint = getTouchMidpoint(e.touches);
   }
@@ -126,7 +166,6 @@ canvas.addEventListener("touchmove", (e) => {
   e.preventDefault();
 
   if (e.touches.length === 1 && lastTouchDistance === null) {
-    // Pan
     const x = e.touches[0].clientX;
     const y = e.touches[0].clientY;
     offsetX += x - lastX;
@@ -143,13 +182,11 @@ canvas.addEventListener("touchmove", (e) => {
     const zoomFactor = newDistance / lastTouchDistance;
     scale *= zoomFactor;
 
-    // Adjust offset so zoom happens around fingers
-    offsetX += (newMidpoint.x - lastTouchMidpoint.x);
-    offsetY += (newMidpoint.y - lastTouchMidpoint.y);
+    offsetX += newMidpoint.x - lastTouchMidpoint.x;
+    offsetY += newMidpoint.y - lastTouchMidpoint.y;
 
     lastTouchDistance = newDistance;
     lastTouchMidpoint = newMidpoint;
-
     draw();
   }
 }, { passive: false });
@@ -180,7 +217,6 @@ function draw() {
   ctx.translate(startX, startY);
   ctx.scale(scale, scale);
 
-  // Draw tiled image
   for (let y = 0; y < tiles; y++) {
     for (let x = 0; x < tiles; x++) {
       ctx.drawImage(img, x * w, y * h);
@@ -188,18 +224,65 @@ function draw() {
   }
 
   if (showEdges) {
-    ctx.strokeStyle = "red";
-    ctx.lineWidth = 2;
+    drawEdgeMagnitude(w, h);
+  }
+}
+
+// ======================
+// EDGE MAGNITUDE — CONTRAST AWARE
+// ======================
+function drawEdgeMagnitude(w, h) {
+  const temp = document.createElement("canvas");
+  temp.width = w;
+  temp.height = h;
+  const tctx = temp.getContext("2d");
+  tctx.drawImage(img, 0, 0);
+
+  const data = tctx.getImageData(0, 0, w, h).data;
+  ctx.lineWidth = 2;
+
+  // Vertical seams
+  for (let y = 0; y < h; y++) {
+    const iL = (y * w) * 4;
+    const iR = (y * w + (w - 1)) * 4;
+
+    const diff =
+      Math.abs(data[iL] - data[iR]) +
+      Math.abs(data[iL + 1] - data[iR + 1]) +
+      Math.abs(data[iL + 2] - data[iR + 2]);
+
+    const alpha = Math.min(diff / 200, 1); // fade out as seam improves
+    if (alpha < 0.05) continue;
+
+    ctx.strokeStyle = `rgba(${seamColor.r}, ${seamColor.g}, ${seamColor.b}, ${alpha})`;
 
     for (let t = 1; t < tiles; t++) {
       ctx.beginPath();
-      ctx.moveTo(w * t, 0);
-      ctx.lineTo(w * t, h * tiles);
+      ctx.moveTo(w * t, y);
+      ctx.lineTo(w * t, y + 1);
       ctx.stroke();
+    }
+  }
 
+  // Horizontal seams
+  for (let x = 0; x < w; x++) {
+    const iT = x * 4;
+    const iB = ((h - 1) * w + x) * 4;
+
+    const diff =
+      Math.abs(data[iT] - data[iB]) +
+      Math.abs(data[iT + 1] - data[iB + 1]) +
+      Math.abs(data[iT + 2] - data[iB + 2]);
+
+    const alpha = Math.min(diff / 200, 1);
+    if (alpha < 0.05) continue;
+
+    ctx.strokeStyle = `rgba(${seamColor.r}, ${seamColor.g}, ${seamColor.b}, ${alpha})`;
+
+    for (let t = 1; t < tiles; t++) {
       ctx.beginPath();
-      ctx.moveTo(0, h * t);
-      ctx.lineTo(w * tiles, h * t);
+      ctx.moveTo(x, h * t);
+      ctx.lineTo(x + 1, h * t);
       ctx.stroke();
     }
   }
