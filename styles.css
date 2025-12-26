@@ -38,4 +38,8 @@ canvas {
   width: 100%;
   height: calc(100% - 48px);
   cursor: grab;
+
+  /* CRITICAL: disable browser gesture handling */
+  touch-action: none;
 }
+
