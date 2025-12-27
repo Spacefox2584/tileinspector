@@ -90,3 +90,84 @@ button.active{
 
 #legend .faint{ opacity:0.6; }
 #legend .bold{ font-weight:600; }
+/* =========================
+   EXPORT FOCUS MODE
+========================= */
+
+#exportOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65); /* dim photo preview */
+  display: none;
+  z-index: 10000;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#exportPanel {
+  background: #111;
+  padding: 16px;
+  border-radius: 8px;
+
+  width: min(90vw, 720px);
+  max-height: 90vh;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.export-title {
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Large export preview */
+#exportPreview {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #000;
+  border-radius: 4px;
+}
+
+/* Controls */
+.export-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.export-controls label {
+  color: #ccc;
+  font-size: 12px;
+}
+
+.export-controls input[type="range"] {
+  width: 100%;
+}
+
+.export-controls button {
+  margin-top: 8px;
+  padding: 10px;
+  font-size: 14px;
+  background: #222;
+  color: #fff;
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.export-controls button:hover {
+  background: #333;
+}
+
+/* Mobile tweaks */
+@media (max-width: 600px) {
+  #exportPanel {
+    width: 95vw;
+    padding: 12px;
+  }
+}
