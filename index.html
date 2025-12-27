@@ -43,25 +43,39 @@
       </div>
     </div>
   </div>
-  <div id="exportPanel" style="display:none; position:fixed; bottom:16px; right:16px; background:#111; padding:12px; border-radius:6px; z-index:9999; width:220px;">
-    <strong style="color:#fff; display:block; margin-bottom:8px;">Export Adjustments</strong>
-    <canvas id="exportPreview" 
-        style="width:100%; aspect-ratio:1/1; background:#000; margin-bottom:10px;"></canvas>
+    <!-- Export Focus Overlay -->
+  <div id="exportOverlay">
 
-    <label>Brightness</label>
-    <input type="range" id="expBrightness" min="-10" max="10" value="0">
+    <div id="exportPanel">
 
-    <label>Contrast</label>
-    <input type="range" id="expContrast" min="-10" max="10" value="0">
+      <strong class="export-title">Export Preview</strong>
 
-    <label>Warmth</label>
-    <input type="range" id="expWarmth" min="-10" max="10" value="0">
+        <!-- Large export preview -->
+      <canvas id="exportPreview"></canvas>
 
-    <label>Shadow Lift</label>
-    <input type="range" id="expShadows" min="0" max="10" value="0">
+      <!-- Controls -->
+      <div class="export-controls">
 
-    <button id="downloadBtn" style="margin-top:10px; width:100%;">Download JPG</button>
+        <label>Brightness</label>
+        <input type="range" id="expBrightness" min="-10" max="10" value="0">
+
+        <label>Contrast</label>
+        <input type="range" id="expContrast" min="-10" max="10" value="0">
+
+        <label>Warmth</label>
+        <input type="range" id="expWarmth" min="-10" max="10" value="0">
+
+        <label>Shadow Lift</label>
+        <input type="range" id="expShadows" min="0" max="10" value="0">
+
+        <button id="downloadBtn">Download JPG</button>
+
+      </div>
+
+    </div>
+
   </div>
+
 
   <script src="main.js"></script>
 </body>
